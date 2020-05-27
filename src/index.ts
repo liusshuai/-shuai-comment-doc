@@ -1,0 +1,1 @@
+throw Error('@shuai/comment-doc is a CLI tool and cannot be imported as a module');

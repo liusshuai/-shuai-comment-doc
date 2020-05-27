@@ -1,0 +1,36 @@
+{
+  "name": "@shuai/comment-doc",
+  "version": "1.0.0",
+  "description": "Tools that generate documents by scanning comments",
+  "main": "lib/index.js",
+  "bin": {
+    "sdoc": "lib/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w",
+    "clean": "rm -rf lib",
+    "prepare": "npm run clean"
+  },
+  "keywords": [
+    "comment",
+    "doc",
+    "auto"
+  ],
+  "author": "lsshuai",
+  "license": "ISC",
+  "dependencies": {
+    "@babel/generator": "^7.9.6",
+    "@babel/traverse": "^7.9.6",
+    "babel-types": "^6.26.0",
+    "babylon": "^6.18.0",
+    "chalk": "^4.0.0",
+    "commander": "^5.1.0",
+    "markdown-it": "^11.0.0",
+    "update-notifier": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^14.0.5",
+    "@types/update-notifier": "^4.1.0"
+  }
+}
