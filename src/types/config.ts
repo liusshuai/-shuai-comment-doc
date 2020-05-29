@@ -4,7 +4,7 @@ export interface Output {
     markdown?: boolean;
 }
 
-interface DemoItem {
+export interface DemoItem {
     entry: string;
     output: string;
 }

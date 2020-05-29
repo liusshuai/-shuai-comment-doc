@@ -1,5 +1,4 @@
 import babylon = require('babylon');
-import { getExtname, getFileContent } from '../util/file';
 import { File } from '../types/file';
 const t = require('babel-types');
 const traverse = require('@babel/traverse').default;
@@ -28,8 +27,6 @@ class Parser {
         return babylon.parse(codeStr, {
             sourceType: "module",
             sourceFilename: filePath,
-            allowReturnOutsideFunction: true,
-            allowImportExportEverywhere: true,
             plugins: ['jsx', 'flow', 'doExpressions', 'objectRestSpread', 'decorators',
             'classProperties', 'exportExtensions', 'asyncGenerators', 'functionBind',
             'functionSent', 'dynamicImport'] 

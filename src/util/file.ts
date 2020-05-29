@@ -28,7 +28,8 @@ export function createFileOrDir(filePath: string): void {
             if (/\S+\.\S+/.test(_path.join('/'))) {
                 fs.writeFileSync(filePath, '', 'utf8');
             } else {
-                fs.mkdirSync(_path.join('/'));
+                const __path = _path.join('/');
+                !fileIsExist(__path) && fs.mkdirSync(__path);
             }
         });
     }

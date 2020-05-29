@@ -11,9 +11,10 @@ export interface TabelData {
 }
 
 const paramReg = /@param/;
+const nameReg = /@name/;
 const callbackReg = /@return/;
 const typeReg = /{(.*?)}/;
-const propReg = /^@(type|required|default|options)/;
+export const descReg = /^@description/;
 
 export function getBlockComments(comments: CommentBlock[]): CommentBlock[] {
     const tagReg = /^\*/;
@@ -34,8 +35,11 @@ export function initMethodsDocItem(node: FunctionNode,
     const index: number = getCommentsBodyLine(line, blockComments);
 
     if (index === -1) return null;
-    
+
     const comment = blockComments[index];
+    const info: CommentParseData | null = parseComment(comment.value);
+    if (info === null) return null;
+    
     const params: string[] = [];
     node.params.forEach(p => {
         params.push(p.name);
@@ -45,7 +49,6 @@ export function initMethodsDocItem(node: FunctionNode,
         name: `${(node.key && node.key.name) || (node.id && node.id.name)}(${params.join(',')})`,
         line: node.loc.start.line
     };
-    const info: CommentParseData = parseComment(comment.value);
 
     /** 暴露模块的逻辑，已废弃 */
     // if (info.codeExport) {
@@ -111,38 +114,6 @@ export function pushData(options: File, html: boolean): { md: string, html: stri
     return { md: mdStr, html: htmlStr };
 }
 
-export function parsePropComment(comment: string) {
-    const props: PropCommentData = {name: '', type: '-'};
-    const commentGroup: string[] = filterComment(comment);
-    // console.log(commentGroup);
-    commentGroup.forEach(c => {
-        const matched = c.match(propReg);
-        if (!matched) { props.desc = c; }
-        if (matched && matched[1]) {
-            switch(matched[1]) {
-                case 'required': 
-                    props.required = 'true';
-                    break;
-                case 'type':
-                case 'default': 
-                case 'options':
-                    const v = c.replace(propReg, '');
-                    if (matched[1] === 'type') {
-                        const type = parseBrackets(c);
-                        if (type !== null) { props.type = type };
-                    } else {
-                        props[matched[1]] = v.trim();
-                    }
-                    break;
-                default: 
-                    break;
-            }
-        } 
-    });
-
-    return props;
-}
-
 function getCommentsBodyLine(line: number, blockComments: CommentBlock[]): number {
     let _line: number = -1;
     for (let i = 1; i < 2; i++) { 
@@ -152,10 +123,12 @@ function getCommentsBodyLine(line: number, blockComments: CommentBlock[]): numbe
     return _line;
 }
 
-function parseComment(comment: string) {
+function parseComment(comment: string): CommentParseData | null {
     const params: TabelData[] = [];
-    const data: CommentParseData = { desc: '' };
+    const data: CommentParseData = {};
     const commentGroup: string[] = filterComment(comment);
+
+    if (commentGroup.includes('@ignore')) { return null; }
     
     /** 暴露模块的逻辑，已废弃 */
     // const args = commentGroup[0].split('-');
@@ -180,8 +153,11 @@ function parseComment(comment: string) {
             });
         } else if (callbackReg.test(c)) {
             data.callback = type + ', ' + cRow.join(',');
+        } else if (nameReg.test(c)) {
+            data.name = cRow.join(',');
         } else {
-            data.desc += c + '\n';
+            data.desc = data.desc ? data.desc : '';
+            data.desc += parseDesc(c) + '\n';
         }
     });
 
@@ -190,13 +166,20 @@ function parseComment(comment: string) {
     return data;
 }
 
-function filterComment(comment: string): string[] {
+export function parseDesc(c: string): string {
+    if (descReg.test(c)) { 
+        c = c.replace(descReg, '').trim();
+    }
+    return c;
+}
+
+export function filterComment(comment: string): string[] {
     return comment.split('\n')
     .map(c => c.replace(/(\*)*/g, '').trim())
     .filter(c => c);
 }
 
-function parseBrackets(comment: string): string | null {
+export function parseBrackets(comment: string): string | null {
     const typeArr = comment.match(typeReg);
     if (typeArr && typeArr[1]) { 
         return typeArr[1];

@@ -1,20 +1,24 @@
 import Parser, { InitOptions } from '../core/parse';
-import { getFileContent, dotFileName } from '../util/file';
+import { getFileContent, getExtname } from '../util/file';
 import { CommentBlock, PropCommentData } from '../types/comment';
 import { ExportDefaultObjectNode, ObjectProperty,
     ObjectExp, Identifier,
     FunctionNode, StringLiteral } from '../types/declaration';
 import { MethodDoc } from '../types/file';
-import { getBlockComments, TabelData, initMethodsDocItem, parsePropComment } from '../util/parse';
+import { getBlockComments, parseBrackets,
+    initMethodsDocItem, filterComment, parseDesc } from '../util/parse';
 import { getDotName } from './common';
 
 class ExportDefaultParser extends Parser {
-    readonly extRegExp = /^.vue$/;
+    readonly extRegExp = /^.(vue|js)$/;
     init(options: InitOptions) {
         const { filePath } = options;
-        const content = getFileContent(filePath);
-        const jsContent = parseVue(content);
-        const codeTree = this.parse(filePath, jsContent);
+        let content = getFileContent(filePath);
+        const extname = getExtname(filePath);
+        if (extname === '.vue') {
+            content = parseVue(content);
+        }
+        const codeTree = this.parse(filePath, content);
         this.traverseCode(codeTree);
     }
 
@@ -93,7 +97,7 @@ function parseProps (properties: ObjectProperty[]): PropCommentData[] {
         };
         if (blockComment && blockComment.type === 'CommentBlock') {
             pti = parsePropComment(blockComment.value);
-            pti.name = prop.key.name;
+            pti.name = pti.name ? pti.name : prop.key.name;
         } else if (blockComment && blockComment.type === 'CommentLine') {
             pti.default = blockComment.value;
 
@@ -133,4 +137,40 @@ function parseProps (properties: ObjectProperty[]): PropCommentData[] {
     });
 
     return propTabel;
+}
+
+function parsePropComment(comment: string) {
+    const propReg = /^@(name|type|required|default|options)/;
+    const props: PropCommentData = {name: '', type: '-'};
+    const commentGroup: string[] = filterComment(comment);
+    commentGroup.forEach(c => {
+        const matched = c.match(propReg);
+        if (!matched) { 
+            props.desc = props.desc ? props.desc : '';
+            props.desc += parseDesc(c);
+        }
+        if (matched && matched[1]) {
+            switch(matched[1]) {
+                case 'required': 
+                    props.required = 'true';
+                    break;
+                case 'type':
+                case 'default': 
+                case 'options':
+                case 'name':
+                    const v = c.replace(propReg, '');
+                    if (matched[1] === 'type') {
+                        const type = parseBrackets(c);
+                        if (type !== null) { props.type = type };
+                    } else {
+                        props[matched[1]] = v.trim();
+                    }
+                    break;
+                default: 
+                    break;
+            }
+        } 
+    });
+
+    return props;
 }

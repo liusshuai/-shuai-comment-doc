@@ -1,24 +1,27 @@
 import fs = require('fs');
 import path = require('path');
 import Log from '../util/log';
-import { isFile, isDir, getExtname, mkDirs, writeFile } from "../util/file";
-import Config, { Output } from '../types/config';
+import { isFile, isDir, getExtname, mkDirs, writeFile, fileIsExist, createFileOrDir, deleteFolder, getFileContent } from "../util/file";
+import Config, { Output, DemoItem } from '../types/config';
 import { File } from '../types/file';
 import { pushData } from '../util/parse';
 import htmlWrap from '../util/html';
+import { parseTitle, parseCode } from '../util/markdown';
 
 export default class Doc {
     start: number;
     end: number;
     plugins: string[];
     output: Output;
+    demo: DemoItem[]
 
     constructor(options: Config) {
-        const { plugins = [], tag = '@sdoc' } = options;
+        const { plugins = [] } = options;
         this.start = 0;
         this.end = 0;
         this.plugins = plugins;
         this.output = options.output as Output;
+        this.demo = options.demo || []
     }
 
     protected loadPlugins(filePath: string) {
@@ -62,6 +65,7 @@ export default class Doc {
             files = files.concat(plugin.docs);
         });
         printFile(output, this.output, files);
+        printDemoFile(this.demo);
         this.end = new Date().getTime();
     }
 }
@@ -102,4 +106,33 @@ function printFile(output: string, info: Output, files: File[]) {
             writeFile(output, htmlWrap('', contentStr))
             : writeFile(output, contentStr);
     }
+}
+
+function printDemoFile(demo: DemoItem[]) {
+    if (!demo.length) return;
+    demo.forEach(d => {
+        const entry = d.entry;
+        const output = d.output;
+        const entryIsExist: boolean = fileIsExist(entry);
+        if (!entryIsExist) {
+            Log.error([`${entry} does not exist`]);
+            return;
+        }
+        !fileIsExist(output) && createFileOrDir(output);
+        if (isDir(output)) {
+            Log.error(['demo output must be file']);
+            deleteFolder(output);
+            return;
+        }
+
+        const demoContent = getFileContent(entry);
+        const outputContent = getFileContent(output);
+
+        const demoStr = parseTitle('Example:3')
+            + parseCode(demoContent, 'js') + '\n\n';
+
+        const result = outputContent + demoStr;
+
+        writeFile(output, result);
+    });
 }

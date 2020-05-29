@@ -9,6 +9,7 @@ export interface CommentBlock {
 }
 
 export interface CommentParseData {
+    name?: string;
     codeExport?: boolean;
     callback?: string;
     desc?: string;
