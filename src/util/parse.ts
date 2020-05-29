@@ -1,8 +1,7 @@
 const MarkdownIt = require('markdown-it');
-import { CommentBlock, CommentParseData } from "../types/comment";
+import { CommentBlock, CommentParseData, PropCommentData } from "../types/comment";
 import { FunctionNode } from "../types/declaration";
 import { parseTabel, parseTitle, parseCode, parseQuote } from "./markdown";
-import { generateCode } from "../core/parse";
 import { MethodDoc, File } from "../types/file";
 
 export interface TabelData {
@@ -12,11 +11,12 @@ export interface TabelData {
 }
 
 const paramReg = /@param/;
-const callbackReg = /@callback/;
-const descReg = /@desc/;
+const callbackReg = /@return/;
+const typeReg = /{(.*?)}/;
+const propReg = /^@(type|required|default|options)/;
 
-export function getBlockComments(tag: string, comments: CommentBlock[]): CommentBlock[] {
-    const tagReg = new RegExp(tag);
+export function getBlockComments(comments: CommentBlock[]): CommentBlock[] {
+    const tagReg = /^\*/;
     const blockComments: CommentBlock[] = [];
     comments.forEach(c => {
         if (c.type === 'CommentBlock'
@@ -47,11 +47,12 @@ export function initMethodsDocItem(node: FunctionNode,
     };
     const info: CommentParseData = parseComment(comment.value);
 
-    if (info.codeExport) {
-        node.leadingComments && delete node.leadingComments;
-        node.trailingComments && delete node.trailingComments;
-        methodInfo.code = generateCode(node);
-    }
+    /** 暴露模块的逻辑，已废弃 */
+    // if (info.codeExport) {
+    //     node.leadingComments && delete node.leadingComments;
+    //     node.trailingComments && delete node.trailingComments;
+    //     methodInfo.code = generateCode(node);
+    // }
 
     return Object.assign({}, methodInfo, info);
 } 
@@ -67,18 +68,24 @@ export function pushData(options: File, html: boolean): { md: string, html: stri
         mdStr += parseTitle('API:3') + tabel;
         mdStr += '\n\n';
     }
-
+ 
     if (methods.length) {
         mdStr += parseTitle('Methods:3');
 
         methods.forEach(m => {
             mdStr += parseTitle(`${m.name}:4`)
                 + parseQuote(`line ${m.line}`)
-                + '\n' + m.desc + '\n'
-                + parseTitle(`Parameters:5`)
-                + m.paramsTabel
-                + parseTitle(`Callback:5`)
-                + m.callback;
+                + '\n' + m.desc + '\n';
+
+            if (m.paramsTabel) {
+                mdStr += parseTitle(`Parameters:5`)
+                    + m.paramsTabel + '\n';
+            }
+
+            if (m.callback) {
+                mdStr += parseTitle(`Return:5`)
+                    + m.callback;
+            }
             
             if (m.code) {
                 mdStr += '\n' + parseTitle(`Code:5`)
@@ -104,9 +111,41 @@ export function pushData(options: File, html: boolean): { md: string, html: stri
     return { md: mdStr, html: htmlStr };
 }
 
+export function parsePropComment(comment: string) {
+    const props: PropCommentData = {name: '', type: '-'};
+    const commentGroup: string[] = filterComment(comment);
+    // console.log(commentGroup);
+    commentGroup.forEach(c => {
+        const matched = c.match(propReg);
+        if (!matched) { props.desc = c; }
+        if (matched && matched[1]) {
+            switch(matched[1]) {
+                case 'required': 
+                    props.required = 'true';
+                    break;
+                case 'type':
+                case 'default': 
+                case 'options':
+                    const v = c.replace(propReg, '');
+                    if (matched[1] === 'type') {
+                        const type = parseBrackets(c);
+                        if (type !== null) { props.type = type };
+                    } else {
+                        props[matched[1]] = v.trim();
+                    }
+                    break;
+                default: 
+                    break;
+            }
+        } 
+    });
+
+    return props;
+}
+
 function getCommentsBodyLine(line: number, blockComments: CommentBlock[]): number {
     let _line: number = -1;
-    for (let i = 1; i < 10; i++) { 
+    for (let i = 1; i < 2; i++) { 
         _line = blockComments.findIndex(item => item.loc.end.line + i === line);
         if (_line > -1) { break; }
     }
@@ -115,30 +154,53 @@ function getCommentsBodyLine(line: number, blockComments: CommentBlock[]): numbe
 
 function parseComment(comment: string) {
     const params: TabelData[] = [];
-    const data: CommentParseData = {};
-    const commentGroup: string[] = comment.split('\n')
-        .map(c => c.replace(/(\s|\*)*/g, ''))
-        .filter(c => c);
-    const args = commentGroup[0].split('-');
-    if (args.includes('e')) {
-        data.codeExport = true;
-    }
+    const data: CommentParseData = { desc: '' };
+    const commentGroup: string[] = filterComment(comment);
+    
+    /** 暴露模块的逻辑，已废弃 */
+    // const args = commentGroup[0].split('-');
+    // if (args.includes('e')) {
+    //     data.codeExport = true;
+    //     commentGroup.splice(0, 1);
+    // }
 
-    commentGroup.splice(0, 1);
     commentGroup.forEach(c => {
-        const cRow = c.split(':');
-        if (!cRow[1]) return;
+        const typeArr = c.match(typeReg);
+        let type = '-';
+        if (typeArr && typeArr[1]) { type = typeArr[1]; }
+        c = c.replace(typeReg, '');
+        const cRow = c.split(' ').filter(c => c);
+        cRow.splice(0, 1);
         if (paramReg.test(c)) {
-            const [ name, type, desc ] = cRow[1].split('|');
-            params.push({ name, type, desc });
+            const [name, desc = '-'] = cRow;
+            params.push({
+                name,
+                type,
+                desc
+            });
         } else if (callbackReg.test(c)) {
-            data.callback = cRow[1];
-        } else if (descReg.test(c)) {
-            data.desc = cRow[1];
+            data.callback = type + ', ' + cRow.join(',');
+        } else {
+            data.desc += c + '\n';
         }
     });
 
     data.paramsTabel = parseTabel(params);
 
     return data;
+}
+
+function filterComment(comment: string): string[] {
+    return comment.split('\n')
+    .map(c => c.replace(/(\*)*/g, '').trim())
+    .filter(c => c);
+}
+
+function parseBrackets(comment: string): string | null {
+    const typeArr = comment.match(typeReg);
+    if (typeArr && typeArr[1]) { 
+        return typeArr[1];
+    } else {
+        return null;
+    }
 }

@@ -9,8 +9,7 @@ import ClassDeclaration from '../types/class';
 class ClassParser extends Parser {
     readonly extRegExp = /^.(js|jsx)$/;
     init(options: InitOptions) {
-        const { filePath, tag } = options;
-        this.tag = tag;
+        const { filePath } = options;
         const content = getFileContent(filePath);
         const codeTree = this.parse(filePath, content);
         this.traverseCode(codeTree);
@@ -31,7 +30,7 @@ class ClassParser extends Parser {
         const body: ClassDeclaration.ClassBody = node.body;
         let props: any[] = [];
         const exportMethods: MethodDoc[] = [];
-        const blockComments = getBlockComments(this.tag, comments);
+        const blockComments = getBlockComments(comments);
 
         for(let i = 0; i < body.body.length; i++) {
             const p = body.body[i];

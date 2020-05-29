@@ -36,5 +36,7 @@ export function parseTitle(hstr: string): string {
     const rank = parseInt(_h[1]);
     const tank: string = '#';
 
-    return tank.repeat(rank) + ' ' + _h[0] + '\n';
+    let res = tank.repeat(rank) + ' ' + _h[0] + '\n';
+
+    return res + (parseInt(tank, 10) > 4 ? '' : '\n');
 }

@@ -1,18 +1,17 @@
 import Parser, { InitOptions } from '../core/parse';
 import { getFileContent, dotFileName } from '../util/file';
-import { CommentBlock } from '../types/comment';
+import { CommentBlock, PropCommentData } from '../types/comment';
 import { ExportDefaultObjectNode, ObjectProperty,
     ObjectExp, Identifier,
     FunctionNode, StringLiteral } from '../types/declaration';
 import { MethodDoc } from '../types/file';
-import { getBlockComments, TabelData, initMethodsDocItem } from '../util/parse';
+import { getBlockComments, TabelData, initMethodsDocItem, parsePropComment } from '../util/parse';
 import { getDotName } from './common';
 
 class ExportDefaultParser extends Parser {
     readonly extRegExp = /^.vue$/;
     init(options: InitOptions) {
-        const { filePath, tag } = options;
-        this.tag = tag;
+        const { filePath } = options;
         const content = getFileContent(filePath);
         const jsContent = parseVue(content);
         const codeTree = this.parse(filePath, jsContent);
@@ -32,7 +31,7 @@ class ExportDefaultParser extends Parser {
 
     private handle(node: ExportDefaultObjectNode, comments: CommentBlock[], t: any) {
         const properties: (ObjectProperty | FunctionNode)[] = node.properties || [];
-        const blockComments = getBlockComments(this.tag, comments);
+        const blockComments = getBlockComments(comments);
         const dotName: string = getDotName(node.loc.filename);
         let propTabel: any[] = [];
         let methodTabel: MethodDoc[] = [];
@@ -82,51 +81,52 @@ function parseVue(codeStr: string): string {
     return codeStr.substring(start + 8, end);
 }
 
-interface TabelDataV extends TabelData {
-    required: string;
-    value: string;
-}
-
-function parseProps (properties: ObjectProperty[]): TabelDataV[] {
-    let propTabel: TabelDataV[] = [];
+function parseProps (properties: ObjectProperty[]): PropCommentData[] {
+    let propTabel: PropCommentData[] = [];
     properties.forEach(prop => {
-        const pti: TabelDataV = {
+        const leadingComments = prop.leadingComments && prop.leadingComments || [];
+        const blockComment: CommentBlock = leadingComments[leadingComments.length - 1] as CommentBlock;
+        let pti: PropCommentData = {
             name: prop.key.name,
-            desc: prop.leadingComments && prop.leadingComments[0] && prop.leadingComments[0].value || '-',
-            value: '-',
-            required: 'false',
-            type: '-'
+            desc: '-',
+            type: '-',
         };
+        if (blockComment && blockComment.type === 'CommentBlock') {
+            pti = parsePropComment(blockComment.value);
+            pti.name = prop.key.name;
+        } else if (blockComment && blockComment.type === 'CommentLine') {
+            pti.default = blockComment.value;
 
-        if ((prop.value as StringLiteral).value) {
-            pti.value = (prop.value as StringLiteral).value;
-        }
-
-        if ((prop.value as ObjectExp).properties) {
-            const p = (prop.value as ObjectExp).properties || [];
-            p.forEach(_p => {
-                if (_p.key?.name === 'type' || _p.key?.name === 'required') {
-                    const _pAsPro = _p as ObjectProperty;
-                    if (_p.key?.name === 'type') {
-                        const v = _pAsPro.value as Identifier;
-                        if (v.name) {
-                            pti.type = v.name;
+            if ((prop.value as StringLiteral).value) {
+                pti.default = (prop.value as StringLiteral).value;
+            }
+    
+            if ((prop.value as ObjectExp).properties) {
+                const p = (prop.value as ObjectExp).properties || [];
+                p.forEach(_p => {
+                    if (_p.key?.name === 'type' || _p.key?.name === 'required') {
+                        const _pAsPro = _p as ObjectProperty;
+                        if (_p.key?.name === 'type') {
+                            const v = _pAsPro.value as Identifier;
+                            if (v.name) {
+                                pti.type = v.name;
+                            }
+                        }
+    
+                        if (_p.key?.name === 'required') {
+                            const v = _pAsPro.value as StringLiteral;
+                            if (v.value) {
+                                pti.required = v.value;
+                            }
+                        }
+                    } else if (_p.key?.name === 'default' && !_p.method) {
+                        const _pAsPro = _p as ObjectProperty;
+                        if ((_pAsPro.value as StringLiteral).value) {
+                            pti.default = (_pAsPro.value as StringLiteral).value;
                         }
                     }
-
-                    if (_p.key?.name === 'required') {
-                        const v = _pAsPro.value as StringLiteral;
-                        if (v.value) {
-                            pti.required = v.value;
-                        }
-                    }
-                } else if (_p.key?.name === 'default' && !_p.method) {
-                    const _pAsPro = _p as ObjectProperty;
-                    if ((_pAsPro.value as StringLiteral).value) {
-                        pti.value = (_pAsPro.value as StringLiteral).value;
-                    }
-                }
-            });
+                });
+            }
         }
 
         propTabel.push(pti);

@@ -15,6 +15,15 @@ export interface CommentParseData {
     paramsTabel?: string;
 }
 
+export interface PropCommentData {
+    name: string;
+    type: string;
+    desc?: string;
+    required?: string;
+    options?: string;
+    default?: string;
+}
+
 export interface CommentLine {
     value: string;
     start: number;

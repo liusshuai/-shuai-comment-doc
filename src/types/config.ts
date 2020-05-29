@@ -14,5 +14,5 @@ export default interface Config {
     output: string | Output;
     demo?: DemoItem[];
     plugins?: string[];
-    tag?: string
+    tag?: string; // delete
 }

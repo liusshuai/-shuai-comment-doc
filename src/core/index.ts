@@ -32,7 +32,6 @@ function mergeConfig(): Config {
     const printMarkdown: boolean = program.markdown || true;
 
     const defaultConfig: Config = {
-        tag: '@sdoc',
         entry: './',
         output: {
             path: './doc',

@@ -10,8 +10,7 @@ class FunctionParser extends Parser {
     readonly extRegExp = /^.js$/;
     docs: File[] = [];
     init(options: InitOptions) {
-        const { filePath, tag } = options;
-        this.tag = tag;
+        const { filePath } = options;
         const content = getFileContent(filePath);
         const codeTree = this.parse(filePath, content);
         this.traverseCode(codeTree);
@@ -36,11 +35,10 @@ class FunctionParser extends Parser {
             methods: []
         };
 
-        const blockComments = getBlockComments(this.tag, comments);
+        const blockComments = getBlockComments(comments);
         const methods = initMethodsDocItem(node, blockComments);
 
         methods && file.methods.push(methods);
-
         this.docs.push(file);
     }
 }

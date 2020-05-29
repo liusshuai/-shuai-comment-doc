@@ -11,7 +11,6 @@ export default class Doc {
     start: number;
     end: number;
     plugins: string[];
-    tag: string;
     output: Output;
 
     constructor(options: Config) {
@@ -19,7 +18,6 @@ export default class Doc {
         this.start = 0;
         this.end = 0;
         this.plugins = plugins;
-        this.tag = tag;
         this.output = options.output as Output;
     }
 
@@ -36,8 +34,7 @@ export default class Doc {
             }
             if (plugin.extRegExp.test(extname)) {
                 plugin.init({
-                    filePath,
-                    tag: this.tag
+                    filePath
                 });
             }
         });
@@ -46,7 +43,7 @@ export default class Doc {
     scan(entry: string) {
         this.start = new Date().getTime();
         if (isFile(entry)) {
-            // Parser.parse(entry);
+            this.loadPlugins(entry);
         } else {
             const files: string[] = fs.readdirSync(entry);
             files.forEach((filename) => {
@@ -77,7 +74,6 @@ function printFile(output: string, info: Output, files: File[]) {
         markdown && filePaths.push('/md');
 
         mkDirs(output, filePaths); // Create storage directory
-
         files.forEach(file => {
             const { filename, props = [], methods = [] } = file;
             if (props.length || methods.length) {
