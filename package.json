@@ -26,7 +26,7 @@
     "babylon": "^6.18.0",
     "chalk": "^4.0.0",
     "commander": "^5.1.0",
-    "markdown-it": "^11.0.0",
+    "markdown-it": "^12.3.2",
     "update-notifier": "^4.1.0"
   },
   "devDependencies": {
